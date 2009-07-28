@@ -20,6 +20,7 @@ import org.junit.tests.experimental.max.JUnit38SortingTest;
 import org.junit.tests.experimental.max.MaxStarterTest;
 import org.junit.tests.experimental.parallel.ParallelClassTest;
 import org.junit.tests.experimental.parallel.ParallelMethodTest;
+import org.junit.tests.experimental.rules.ContainerRuleTest;
 import org.junit.tests.experimental.rules.ExpectedExceptionRuleTest;
 import org.junit.tests.experimental.rules.ExternalResourceRuleTest;
 import org.junit.tests.experimental.rules.RulesTest;
@@ -133,7 +134,8 @@ import org.junit.tests.validation.ValidationTest;
 	ExpectedExceptionRuleTest.class,
 	TempFolderRuleTest.class,
 	ExternalResourceRuleTest.class,
-	VerifierRuleTest.class
+	VerifierRuleTest.class,
+	ContainerRuleTest.class
 })
 public class AllTests {
 	public static Test suite() {
