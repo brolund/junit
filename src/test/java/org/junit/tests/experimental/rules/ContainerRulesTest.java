@@ -105,7 +105,7 @@ public class ContainerRulesTest {
 	public static class SingleTestSuite {
 		// Either use @Rule or create a new annotation
 		@Rule
-		public SuiteRule containerRule= new SuiteWatchman() {
+		public SuiteRule suiteRule= new SuiteWatchman() {
 			@Override
 			public void startingSuite(final Class<?> container) {
 				log.push("before suite" + container);
@@ -149,7 +149,7 @@ public class ContainerRulesTest {
 		// or an attribute on the annotation
 		@Rule
 		@Propagate
-		public SuiteRule containerRule= new SuiteWatchman() {
+		public SuiteRule suiteRule= new SuiteWatchman() {
 			@Override
 			public void startingSuite(Class<?> container) {
 				log.push("after suite" + container);
