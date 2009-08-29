@@ -105,7 +105,7 @@ public class ContainerRulesTest {
 	public static class SingleTestSuite {
 		// Either use @Rule or create a new annotation
 		@Rule
-		public static SuiteRule suiteRule= new SuiteWatchman() {
+		public SuiteRule suiteRule= new SuiteWatchman() {
 			@Override
 			public void startingSuite(final Class<?> container) {
 				log.push("before suite" + container);
@@ -121,7 +121,7 @@ public class ContainerRulesTest {
 	@SuiteClasses( { SimpleTestCase.class })
 	public static class TestCaseRuleSuite {
 		@Rule @Propagate
-		public static TestCaseRule testCaseRule= new TestCaseWatchman() {
+		public TestCaseRule testCaseRule= new TestCaseWatchman() {
 			@Override
 			public void startingTestCase(final Class<?> testCase) {
 				log.push("before test case" + testCase);
@@ -149,7 +149,7 @@ public class ContainerRulesTest {
 		// or an attribute on the annotation
 		@Rule
 		@Propagate
-		public static SuiteRule suiteRule= new SuiteWatchman() {
+		public SuiteRule suiteRule= new SuiteWatchman() {
 			@Override
 			public void startingSuite(Class<?> container) {
 				log.push("after suite" + container);
@@ -171,7 +171,7 @@ public class ContainerRulesTest {
 	public static class PropagatingMethodRuleSuite {
 		@Rule
 		@Propagate
-		public static MethodRule propagatingMethodRule= new TestWatchman() {
+		public MethodRule propagatingMethodRule= new TestWatchman() {
 			@Override
 			public void starting(FrameworkMethod method) {
 				log.add("before method");
