@@ -32,12 +32,20 @@ public class Sorter implements Comparator<Description> {
 	/**
 	 * Sorts the test in <code>runner</code> using <code>comparator</code>
 	 * @param object
+	 * @deprecated Use apply(Sortable sortable) instead
 	 */
 	public void apply(Object object) {
 		if (object instanceof Sortable) {
-			Sortable sortable = (Sortable) object;
-			sortable.sort(this);
+			apply((Sortable) object);
 		}
+	}
+
+	/**
+	 * Sorts the test in <code>runner</code> using <code>comparator</code>
+	 * @param sortable
+	 */
+	public void apply(Sortable sortable) {
+		sortable.sort(this);
 	}
 
 	public int compare(Description o1, Description o2) {

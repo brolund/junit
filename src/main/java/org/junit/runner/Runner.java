@@ -1,5 +1,10 @@
 package org.junit.runner;
 
+import org.junit.runner.manipulation.Filter;
+import org.junit.runner.manipulation.Filterable;
+import org.junit.runner.manipulation.NoTestsRemainException;
+import org.junit.runner.manipulation.Sortable;
+import org.junit.runner.manipulation.Sorter;
 import org.junit.runner.notification.RunNotifier;
 
 /**
@@ -18,7 +23,7 @@ import org.junit.runner.notification.RunNotifier;
  * @see org.junit.runner.Description
  * @see org.junit.runner.RunWith
  */
-public abstract class Runner implements Describable {
+public abstract class Runner implements Describable, Filterable, Sortable {
 	/* (non-Javadoc)
 	 * @see org.junit.runner.Describable#getDescription()
 	 */
@@ -31,6 +36,18 @@ public abstract class Runner implements Describable {
 	 */
 	public abstract void run(RunNotifier notifier);
 	
+	/**
+	 * Void implementation that performs no filtering. Override this to implement
+	 * filtering
+	 */
+	public void filter(Filter filter) throws NoTestsRemainException {}
+	
+	/**
+	 * Void implementation that performs no sorting. Override this to implement
+	 * sorting.
+	 */
+	public void sort(Sorter sorter) {}
+
 	/**
 	 * @return the number of tests to be run by the receiver
 	 */
