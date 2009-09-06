@@ -14,6 +14,7 @@ import org.junit.experimental.theories.PotentialAssignment.CouldNotGenerateValue
 import org.junit.experimental.theories.internal.Assignments;
 import org.junit.experimental.theories.internal.ParameterizedAssertionError;
 import org.junit.internal.AssumptionViolatedException;
+import org.junit.runner.notification.RunNotifier;
 import org.junit.runners.BlockJUnit4ClassRunner;
 import org.junit.runners.model.FrameworkMethod;
 import org.junit.runners.model.InitializationError;
@@ -62,7 +63,7 @@ public class Theories extends BlockJUnit4ClassRunner {
 	}
 
 	@Override
-	public Statement methodBlock(final FrameworkMethod method) {
+	public Statement methodBlock(final FrameworkMethod method, RunNotifier notifier) {
 		return new TheoryAnchor(method);
 	}
 
@@ -116,9 +117,8 @@ public class Theories extends BlockJUnit4ClassRunner {
 					// do nothing
 				}
 
-				@Override
 				public Statement methodBlock(FrameworkMethod method) {
-					final Statement statement= super.methodBlock(method);
+					final Statement statement= super.methodBlock(method, new RunNotifier());
 					return new Statement() {
 						@Override
 						public void evaluate() throws Throwable {

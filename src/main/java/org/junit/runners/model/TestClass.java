@@ -12,6 +12,7 @@ import java.util.Map;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.rules.TestCaseRule;
 
 /**
  * Wraps a class to be run, providing method validation and annotation searching
@@ -128,5 +129,10 @@ public class TestClass {
 		if (fClass == null)
 			return new Annotation[0];
 		return fClass.getAnnotations();
+	}
+
+	@Override
+	public String toString() {
+		return "TestClass representing: " + fClass;
 	}
 }

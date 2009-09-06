@@ -2,12 +2,11 @@ package org.junit.tests.experimental.rules;
 
 import static org.junit.Assert.assertEquals;
 
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
 import java.util.Iterator;
 import java.util.LinkedList;
 
 import org.junit.Before;
+import org.junit.Propagate;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.experimental.theories.Theories;
@@ -40,11 +39,11 @@ public class ContainerRulesTest {
 	public void suiteRuleIsRunForSuite() throws Exception {
 		JUnitCore.runClasses(SingleTestSuite.class);
 		Iterator<Object> events= log.iterator();
-
-		assertEquals("before suite" + SingleTestSuite.class, events.next());
-		assertEquals("test method executed", events.next());
-		assertEquals("after suite" + SingleTestSuite.class, events.next());
-		assertEquals(SingleTestSuite.class, events.next());
+		
+		matchEventsToLog(
+				"before suite" + SingleTestSuite.class,
+				"test method executed",
+				"after suite" + SingleTestSuite.class);
 	}
 	
 	/**
@@ -58,12 +57,13 @@ public class ContainerRulesTest {
 		JUnitCore.runClasses(NestedSuite.class);
 		Iterator<Object> events= log.iterator();
 
-		assertEquals("before suite" + NestedSuite.class, events.next());
-		assertEquals("test method executed", events.next());
-		assertEquals("before suite" + LeafSuite.class, events.next());
-		assertEquals("test method executed", events.next());
-		assertEquals("after suite" + LeafSuite.class, events.next());
-		assertEquals("after suite" + NestedSuite.class, events.next());
+		matchEventsToLog(
+				"before suite" + NestedSuite.class,
+				"test method executed",
+				"before suite" + LeafSuite.class,
+				"test method executed",
+				"after suite" + LeafSuite.class,
+				"after suite" + NestedSuite.class);
 	}
 
 	/**
@@ -77,9 +77,10 @@ public class ContainerRulesTest {
 		JUnitCore.runClasses(PropagatingMethodRuleSuite.class);
 		Iterator<Object> events= log.iterator();
 
-		assertEquals("before method", events.next());
-		assertEquals("test method executed", events.next());
-		assertEquals("after method", events.next());
+		matchEventsToLog(
+				"before method",
+				"test method executed",
+				"after method");
 	}
 
 	/**
@@ -89,14 +90,41 @@ public class ContainerRulesTest {
 	 * @throws Exception
 	 */
 	@Test
-	public void testCaseRuleIsRunForTest() throws Exception {
-		JUnitCore.runClasses(SingleTestSuite.class);
-		Iterator<Object> events= log.iterator();
+	public void testCaseRuleOnSuiteIsRunForTest() throws Exception {
+		JUnitCore.runClasses(TestCaseRuleSuite.class);
 
-		assertEquals("before test case" + SimpleTestCase.class, events.next());
-		assertEquals("test method executed", events.next());
-		assertEquals("after test case" + SimpleTestCase.class, events.next());
-		assertEquals(SingleTestSuite.class, events.next());
+		matchEventsToLog(
+				"before test case" + SimpleTestCase.class,
+				"test method executed",
+				"after test case" + SimpleTestCase.class);
+	}
+
+	/**
+	 * You should be able to add a TestCaseRule for the executing class. 
+	 * 
+	 * @throws Exception
+	 */
+	@Test
+	public void testCaseRuleOnTestCaseIsRunForTest() throws Exception {
+		JUnitCore.runClasses(LocalTestCaseRuleSuite.class);
+
+		matchEventsToLog(
+				"before test case" + TestCaseRuleTestCase.class,
+				"test method executed",
+				"after test case" + TestCaseRuleTestCase.class);
+	}
+
+
+	private void matchEventsToLog(String... expecteds) {
+		String actual = "";
+		String expected = "";
+		for (Object entry : log) {
+			actual += entry + "\n";
+		}
+		for (String expectedEntry : expecteds) {
+			expected += expectedEntry + "\n";
+		}
+		assertEquals(expected, actual);
 	}
 
 
@@ -108,11 +136,11 @@ public class ContainerRulesTest {
 		public static SuiteRule suiteRule= new SuiteWatchman() {
 			@Override
 			public void startingSuite(final Class<?> container) {
-				log.push("before suite" + container);
+				log.add("before suite" + container);
 			}
 			@Override
 			public void finishedSuite(final Class<?> container) {
-				log.push("after suite" + container);
+				log.add("after suite" + container);
 			}
 		};
 	}
@@ -124,16 +152,39 @@ public class ContainerRulesTest {
 		public static TestCaseRule testCaseRule= new TestCaseWatchman() {
 			@Override
 			public void startingTestCase(final Class<?> testCase) {
-				log.push("before test case" + testCase);
+				log.add("before test case" + testCase);
 			}
 			@Override
 			public void finishedTestCase(final Class<?> testCase) {
-				log.push("after test case" + testCase);
+				log.add("after test case" + testCase);
 			}
 		};
 	}
 
 	public static class SimpleTestCase {
+		@Test
+		public void method() throws Exception {
+			log.add("test method executed");
+		}
+	}
+
+	@RunWith(Suite.class)
+	@SuiteClasses( { TestCaseRuleTestCase.class })
+	public static class LocalTestCaseRuleSuite {
+	}
+
+	public static class TestCaseRuleTestCase {
+		@Rule @Propagate
+		public static TestCaseRule testCaseRule= new TestCaseWatchman() {
+			@Override
+			public void startingTestCase(final Class<?> testCase) {
+				log.add("before test case" + testCase);
+			}
+			@Override
+			public void finishedTestCase(final Class<?> testCase) {
+				log.add("after test case" + testCase);
+			}
+		};
 		@Test
 		public void method() throws Exception {
 			log.add("test method executed");
@@ -152,11 +203,11 @@ public class ContainerRulesTest {
 		public static SuiteRule suiteRule= new SuiteWatchman() {
 			@Override
 			public void startingSuite(Class<?> container) {
-				log.push("after suite" + container);
+				log.add("before suite" + container);
 			}
 			@Override
 			public void finishedSuite(Class<?> container) {
-				log.push("before suite" + container);
+				log.add("after suite" + container);
 			}
 		};
 	}
@@ -181,10 +232,6 @@ public class ContainerRulesTest {
 				log.add("after method");
 			}
 		};
-	}
-
-	@Retention(RetentionPolicy.RUNTIME)
-	public @interface Propagate {
 	}
 
 }

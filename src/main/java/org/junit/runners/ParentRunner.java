@@ -5,15 +5,21 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.LinkedList;
 import java.util.List;
 
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.Propagate;
+import org.junit.Rule;
+import org.junit.Test;
 import org.junit.internal.AssumptionViolatedException;
 import org.junit.internal.runners.model.EachTestNotifier;
 import org.junit.internal.runners.model.MultipleFailureException;
 import org.junit.internal.runners.statements.RunAfters;
 import org.junit.internal.runners.statements.RunBefores;
+import org.junit.rules.SuiteRule;
+import org.junit.rules.TestCaseRule;
 import org.junit.runner.Description;
 import org.junit.runner.Runner;
 import org.junit.runner.manipulation.Filter;
@@ -23,11 +29,14 @@ import org.junit.runner.manipulation.Sortable;
 import org.junit.runner.manipulation.Sorter;
 import org.junit.runner.notification.RunNotifier;
 import org.junit.runner.notification.StoppedByUserException;
+import org.junit.runners.model.FrameworkField;
 import org.junit.runners.model.FrameworkMethod;
 import org.junit.runners.model.InitializationError;
 import org.junit.runners.model.RunnerScheduler;
 import org.junit.runners.model.Statement;
 import org.junit.runners.model.TestClass;
+import org.junit.tests.experimental.rules.ContainerRulesTest;
+import org.omg.CosNaming.IstringHelper;
 
 /**
  * Provides most of the functionality specific to a Runner that implements a
@@ -136,6 +145,7 @@ public abstract class ParentRunner<T> extends Runner implements Filterable,
 	 * necessary, with exceptions from AfterClass methods into a
 	 * {@link MultipleFailureException}.
 	 * </ul>
+	 * TODO: Needs updating if rules implementation is accepted
 	 * @param notifier
 	 * @return {@code Statement}
 	 */
@@ -143,8 +153,158 @@ public abstract class ParentRunner<T> extends Runner implements Filterable,
 		Statement statement= childrenInvoker(notifier);
 		statement= withBeforeClasses(statement);
 		statement= withAfterClasses(statement);
+		statement= withRules(statement, notifier);
 		return statement;
 	}
+
+	/**
+	 * Appends TestCaseRules and SuiteRules to the statement
+	 * @param statement
+	 * @param notifier
+	 * @return
+	 */
+	private Statement withRules(final Statement statement, RunNotifier notifier) {
+		final List<Object> ancestory = notifier.getAncestoryRootToLeafCopy();
+		return new Statement() {
+			@Override
+			public void evaluate() throws Throwable {
+				Statement localStatement = statement;
+				localStatement= withLocalTestCaseRules(localStatement);
+				localStatement= withPropagatedTestCaseRules(ancestory, localStatement);
+				localStatement= withSuiteRules(ancestory, localStatement);
+				localStatement.evaluate();
+			}
+
+		};
+	}
+	
+	/**
+	 * Appends propagated and local suite rules if the current class is a
+	 * suite
+	 * @param ancestory
+	 * @param statement
+	 * @return
+	 */
+	private Statement withSuiteRules(final List<Object> ancestory,
+			Statement statement) {
+		for (Object ancestor : ancestory) {
+			if(ancestor instanceof Suite && !isTestCase(fTestClass)) {
+				TestClass testClass= ((Suite) ancestor).getTestClass();
+				if(isTestCase(testClass)) continue;
+				
+				List<SuiteRule> rules = getSuiteRules(testClass, fTestClass);
+				for (SuiteRule suiteRule : rules) {
+					statement = suiteRule.apply(statement, fTestClass.getJavaClass());
+				}
+				
+			}
+		}
+		return statement;
+	}
+
+	/**
+	 * Appends propagated TestCaseRules if the current class is a 
+	 * test case.
+	 * @param ancestory
+	 * @param localStatement
+	 * @return
+	 * @throws IllegalAccessException
+	 */
+	private Statement withPropagatedTestCaseRules(
+			final List<Object> ancestory, Statement localStatement)
+			throws IllegalAccessException {
+		for (Object ancestor : ancestory) {
+			if(ancestor instanceof TestClass) {
+				List<TestCaseRule> rules= getTestCaseRules((TestClass) ancestor);
+				for (TestCaseRule testCaseRule : rules) {
+					localStatement = testCaseRule.apply(localStatement, fTestClass.getJavaClass());
+				}
+			}
+		}
+		return localStatement;
+	}
+
+	/**
+	 * Appends local TestCaseRules if the current fTestClass is 
+	 * a test case.
+	 * @param localStatement
+	 * @return
+	 * @throws IllegalAccessException
+	 */
+	private Statement withLocalTestCaseRules(Statement localStatement)
+			throws IllegalAccessException {
+		if(isTestCase(fTestClass)) {
+			List<TestCaseRule> rules= getTestCaseRules(fTestClass);
+			for (TestCaseRule testCaseRule : rules) {
+				localStatement = testCaseRule.apply(localStatement, fTestClass.getJavaClass());
+			}
+		}
+		return localStatement;
+	}
+
+	/**
+	 * Provides SuiteRules for a TestClass. Rules returned are either Propagated 
+	 * (using the Propagate annotation) or local to the current suite.
+	 * @param ruleProvider
+	 * @param currentClass
+	 * @return
+	 */
+	private List<SuiteRule> getSuiteRules(TestClass ruleProvider, TestClass currentClass) {
+		List<SuiteRule> rules = new LinkedList<SuiteRule>();
+		List<FrameworkField> annotatedFields= ruleProvider.getAnnotatedFields(Rule.class);
+
+		for (FrameworkField frameworkField : annotatedFields) {
+			Class<?> type= frameworkField.getField().getType();
+			if(type.isAssignableFrom(SuiteRule.class) && 
+				(frameworkField.getField().isAnnotationPresent(Propagate.class) ||
+				currentClass.getJavaClass().equals(ruleProvider.getJavaClass()))) {
+				SuiteRule suiteRule = getSuiteRule(frameworkField);
+				rules.add(suiteRule);
+			}
+		}
+		return rules;
+	}
+
+	/**
+	 * Method to avoid non-applicable exeption
+	 */
+	private SuiteRule getSuiteRule(FrameworkField frameworkField) {
+		try {
+			return (SuiteRule) frameworkField.get(null);
+		} catch (Exception e) {
+			throw new RuntimeException("SuiteRule should exists here.", e);
+		}
+	}
+
+	/**
+	 * Returns the TestCaseRules declared on the TestClass
+	 * @param testClass
+	 * @return
+	 * @throws IllegalAccessException
+	 */
+	private List<TestCaseRule> getTestCaseRules(TestClass testClass)
+			throws IllegalAccessException {
+		List<FrameworkField> annotatedFields= testClass.getAnnotatedFields(Rule.class);
+		List<TestCaseRule> rules = new LinkedList<TestCaseRule>();
+		for (FrameworkField frameworkField : annotatedFields) {
+			Class<?> type= frameworkField.getField().getType();
+			if(type.isAssignableFrom(TestCaseRule.class)) {
+				TestCaseRule testCaseRule = (TestCaseRule) frameworkField.get(null);
+				rules.add(testCaseRule);
+			}
+		}
+		return rules;
+	}
+
+	/**
+	 * Returns true if testClass contains methods annotated with @Test, false otherwise.
+	 * @param testClass
+	 * @return
+	 */
+	private boolean isTestCase(TestClass testClass) {
+		return !testClass.getAnnotatedMethods(Test.class).isEmpty();
+	}
+
 
 	/**
 	 * Returns a {@link Statement}: run all non-overridden {@code @BeforeClass} methods on this class
@@ -181,7 +341,9 @@ public abstract class ParentRunner<T> extends Runner implements Filterable,
 		return new Statement() {
 			@Override
 			public void evaluate() {
+				notifier.pushAncestor(fTestClass);
 				runChildren(notifier);
+				notifier.popAncestor();
 			}
 		};
 	}
@@ -190,7 +352,9 @@ public abstract class ParentRunner<T> extends Runner implements Filterable,
 		for (final T each : getFilteredChildren())
 			fScheduler.schedule(new Runnable() {			
 				public void run() {
+					notifier.pushAncestor(each);
 					ParentRunner.this.runChild(each, notifier);
+					notifier.popAncestor();
 				}
 			});
 		fScheduler.finished();

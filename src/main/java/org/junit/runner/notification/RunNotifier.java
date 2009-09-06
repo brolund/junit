@@ -2,6 +2,7 @@ package org.junit.runner.notification;
 
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 
 import org.junit.internal.AssumptionViolatedException;
@@ -18,6 +19,7 @@ import org.junit.runner.Result;
 public class RunNotifier {
 	private final List<RunListener> fListeners= new ArrayList<RunListener>();
 	private boolean fPleaseStop= false;
+	private LinkedList<Object> ancestory = new LinkedList<Object>();
 	
 	/** Internal use only
 	 */
@@ -31,6 +33,36 @@ public class RunNotifier {
 		fListeners.remove(listener);
 	}
 
+	/**
+	 * This method pushes an object to the test class ancestory.
+	 * Its not pretty, but RunNotifier is the only execution context-like
+	 * structure in JUnit. The ancestory is used to find rules to apply.
+	 * 
+	 * This should probably be an abstraction on the Runner/TestClass level.
+	 * 
+	 * @param The ancestor to push
+	 */
+	public void pushAncestor(Object ancestor) {
+		ancestory.push(ancestor);
+	}
+
+	/**
+	 * Pops the corresponding ancestor.
+	 * @return The popped ancestor
+	 */
+	public Object popAncestor() {
+		return ancestory.pop();
+	}
+
+	/**
+	 * Provides a copy of the ancestory path.
+	 * @return The ancestory
+	 */
+	public List<Object> getAncestoryRootToLeafCopy() {
+		return new LinkedList<Object>(ancestory);
+	}
+	
+	
 	private abstract class SafeNotifier {
 		void run() {
 			for (Iterator<RunListener> all= fListeners.iterator(); all.hasNext();)

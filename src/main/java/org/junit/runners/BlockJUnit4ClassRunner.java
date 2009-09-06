@@ -3,11 +3,13 @@ package org.junit.runners;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
+import org.junit.Propagate;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.Test.None;
@@ -22,12 +24,14 @@ import org.junit.internal.runners.statements.InvokeMethod;
 import org.junit.internal.runners.statements.RunAfters;
 import org.junit.internal.runners.statements.RunBefores;
 import org.junit.rules.MethodRule;
+import org.junit.rules.TestCaseRule;
 import org.junit.runner.Description;
 import org.junit.runner.notification.RunNotifier;
 import org.junit.runners.model.FrameworkField;
 import org.junit.runners.model.FrameworkMethod;
 import org.junit.runners.model.InitializationError;
 import org.junit.runners.model.Statement;
+import org.junit.runners.model.TestClass;
 
 /**
  * Implements the JUnit 4 standard test case class model, as defined by the
@@ -73,7 +77,7 @@ public class BlockJUnit4ClassRunner extends ParentRunner<FrameworkMethod> {
 
 		eachNotifier.fireTestStarted();
 		try {
-			methodBlock(method).evaluate();
+			methodBlock(method, notifier).evaluate();
 		} catch (AssumptionViolatedException e) {
 			eachNotifier.addFailedAssumption(e);
 		} catch (Throwable e) {
@@ -83,6 +87,49 @@ public class BlockJUnit4ClassRunner extends ParentRunner<FrameworkMethod> {
 		}
 	}
 
+	private Statement withPropagatedMethodRules(final Statement statement, final FrameworkMethod frameworkMethod, final Object target, RunNotifier notifier) {
+		Statement result= statement;
+		for (MethodRule each : propagatedRules(target, notifier))
+			result= each.apply(result, frameworkMethod, target);
+		return result;
+	}
+
+	private List<MethodRule> propagatedRules(Object target, RunNotifier notifier) {
+		final List<Object> ancestory = notifier.getAncestoryRootToLeafCopy();
+		List<MethodRule> methodRules = new LinkedList<MethodRule>();
+		for (Object ancestor : ancestory) {
+			if(ancestor instanceof TestClass) {
+				TestClass testClass = (TestClass) ancestor;
+				addPropagatedMethodRules(methodRules, testClass);
+			}
+		}
+		
+		return methodRules;
+	}
+
+	private void addPropagatedMethodRules(List<MethodRule> methodRules,
+			TestClass testClass) {
+		List<FrameworkField> annotatedFields= testClass.getAnnotatedFields(Rule.class);
+		for (FrameworkField frameworkField : annotatedFields) {
+			Field field= frameworkField.getField();
+			Class<?> type= field.getType();
+			if(MethodRule.class.isAssignableFrom(type) && 
+					field.isAnnotationPresent(Propagate.class)) {
+					MethodRule methodRule = getStaticMethodRules(frameworkField);
+					methodRules.add(methodRule);
+			}
+		}
+	}
+
+	private MethodRule getStaticMethodRules(FrameworkField frameworkField) {
+		try {
+			return (MethodRule) frameworkField.get(null);
+		} catch (Exception e) {
+			throw new RuntimeException("This should not happend.", e);
+		}
+	}
+
+	
 	@Override
 	protected Description describeChild(FrameworkMethod method) {
 		return Description.createTestDescription(getTestClass().getJavaClass(),
@@ -177,7 +224,8 @@ public class BlockJUnit4ClassRunner extends ParentRunner<FrameworkMethod> {
 	}
 
 	private void validateRuleField(Field field, List<Throwable> errors) {
-		if (!MethodRule.class.isAssignableFrom(field.getType()))
+		if (!(MethodRule.class.isAssignableFrom(field.getType()) ||
+			TestCaseRule.class.isAssignableFrom(field.getType())))
 			errors.add(new Exception("Field " + field.getName()
 					+ " must implement MethodRule"));
 		if (!Modifier.isPublic(field.getModifiers()))
@@ -241,8 +289,9 @@ public class BlockJUnit4ClassRunner extends ParentRunner<FrameworkMethod> {
 	 * 
 	 * This can be overridden in subclasses, either by overriding this method,
 	 * or the implementations creating each sub-statement.
+	 * @param notifier TODO
 	 */
-	protected Statement methodBlock(FrameworkMethod method) {
+	protected Statement methodBlock(FrameworkMethod method, RunNotifier notifier) {
 		Object test;
 		try {
 			test= new ReflectiveCallable() {
@@ -259,6 +308,7 @@ public class BlockJUnit4ClassRunner extends ParentRunner<FrameworkMethod> {
 		statement= possiblyExpectingExceptions(method, test, statement);
 		statement= withPotentialTimeout(method, test, statement);
 		statement= withRules(method, test, statement);
+		statement= withPropagatedMethodRules(statement, method, test, notifier);
 		statement= withBefores(method, test, statement);
 		statement= withAfters(method, test, statement);
 		return statement;
@@ -352,7 +402,9 @@ public class BlockJUnit4ClassRunner extends ParentRunner<FrameworkMethod> {
 	protected List<MethodRule> rules(Object test) {
 		List<MethodRule> results= new ArrayList<MethodRule>();
 		for (FrameworkField each : ruleFields())
-			results.add(createRule(test, each));
+			if(MethodRule.class.isAssignableFrom(each.getField().getType())) {
+				results.add(createRule(test, each));
+			}
 		return results;
 	}
 
