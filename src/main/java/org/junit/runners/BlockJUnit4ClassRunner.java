@@ -307,10 +307,10 @@ public class BlockJUnit4ClassRunner extends ParentRunner<FrameworkMethod> {
 		Statement statement= methodInvoker(method, test);
 		statement= possiblyExpectingExceptions(method, test, statement);
 		statement= withPotentialTimeout(method, test, statement);
-		statement= withRules(method, test, statement);
-		statement= withPropagatedMethodRules(statement, method, test, notifier);
 		statement= withBefores(method, test, statement);
 		statement= withAfters(method, test, statement);
+		statement= withRules(method, test, statement);
+		statement= withPropagatedMethodRules(statement, method, test, notifier);
 		return statement;
 	}
 
