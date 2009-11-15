@@ -12,7 +12,6 @@ import java.util.Map;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.BeforeClass;
-import org.junit.rules.TestCaseRule;
 
 /**
  * Wraps a class to be run, providing method validation and annotation searching

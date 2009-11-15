@@ -35,8 +35,6 @@ import org.junit.runners.model.InitializationError;
 import org.junit.runners.model.RunnerScheduler;
 import org.junit.runners.model.Statement;
 import org.junit.runners.model.TestClass;
-import org.junit.tests.experimental.rules.ContainerRulesTest;
-import org.omg.CosNaming.IstringHelper;
 
 /**
  * Provides most of the functionality specific to a Runner that implements a

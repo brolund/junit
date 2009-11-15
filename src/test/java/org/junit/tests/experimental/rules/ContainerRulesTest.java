@@ -2,7 +2,6 @@ package org.junit.tests.experimental.rules;
 
 import static org.junit.Assert.assertEquals;
 
-import java.util.Iterator;
 import java.util.LinkedList;
 
 import org.junit.Before;
@@ -37,7 +36,6 @@ public class ContainerRulesTest {
 	@Test
 	public void suiteRuleIsRunForSuite() throws Exception {
 		JUnitCore.runClasses(SingleTestSuite.class);
-		Iterator<Object> events= log.iterator();
 		
 		matchEventsToLog(
 				"before suite" + SingleTestSuite.class,
@@ -54,7 +52,6 @@ public class ContainerRulesTest {
 	@Test
 	public void suiteRuleCanPropagateToNestedSuites() throws Exception {
 		JUnitCore.runClasses(NestedSuite.class);
-		Iterator<Object> events= log.iterator();
 
 		matchEventsToLog(
 				"before suite" + NestedSuite.class,
@@ -74,7 +71,6 @@ public class ContainerRulesTest {
 	@Test
 	public void methodRuleCanPropagateToNestedTestCases() throws Exception {
 		JUnitCore.runClasses(PropagatingMethodRuleSuite.class);
-		Iterator<Object> events= log.iterator();
 
 		matchEventsToLog(
 				"before method",
