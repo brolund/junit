@@ -1,6 +1,7 @@
 package org.junit.runner.notification;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -17,7 +18,8 @@ import org.junit.runner.Result;
  * to a separate class since they should only be called once per run.
  */
 public class RunNotifier {
-	private final List<RunListener> fListeners= new ArrayList<RunListener>();
+	private final List<RunListener> fListeners= 
+		Collections.synchronizedList(new ArrayList<RunListener>());
 	private boolean fPleaseStop= false;
 	private LinkedList<Object> ancestory = new LinkedList<Object>();
 	
@@ -31,7 +33,7 @@ public class RunNotifier {
 	 */
 	public void removeListener(RunListener listener) {
 		fListeners.remove(listener);
-	}
+    }
 
 	/**
 	 * This method pushes an object to the test class ancestory.
@@ -65,13 +67,15 @@ public class RunNotifier {
 	
 	private abstract class SafeNotifier {
 		void run() {
-			for (Iterator<RunListener> all= fListeners.iterator(); all.hasNext();)
-				try {
-					notifyListener(all.next());
-				} catch (Exception e) {
-					all.remove(); // Remove the offending listener first to avoid an infinite loop
-					fireTestFailure(new Failure(Description.TEST_MECHANISM, e));
-				}
+			synchronized (fListeners) {
+				for (Iterator<RunListener> all= fListeners.iterator(); all.hasNext();)
+					try {
+						notifyListener(all.next());
+					} catch (Exception e) {
+						all.remove(); // Remove the offending listener first to avoid an infinite loop
+						fireTestFailure(new Failure(Description.TEST_MECHANISM, e));
+					}
+			}
 		}
 		
 		abstract protected void notifyListener(RunListener each) throws Exception;
